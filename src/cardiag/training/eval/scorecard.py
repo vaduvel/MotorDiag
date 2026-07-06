@@ -44,9 +44,24 @@ from cardiag import config, paths
 
 L1_NORMAL = "normal smooth engine idle"
 ENGINE = {"engine_internal", "low_oil", "fuel_ignition", "belt", "accessories",
-          "alternator", "water_pump", "turbo", "exhaust", "ac_compressor", "fuel_pump"}
+           "turbo", "valvetrain", "vacuum_leak", "misfire", "timing"}
 CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "cv_axle", "suspension",
            "differential", "tires", "wheel_tire", "power_steering"}
+
+_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic", "revix", "cdd")
+
+
+def source_of(wav: str, clip_id: str) -> str:
+    """Recording source, external-aware. Scraped clips carry their platform in the
+    wav path; externally-ingested clips (data/external/clips/...) are split into
+    their sub-dataset by the clip_id prefix."""
+    for tag in ("youtube", "tiktok", "reddit"):
+        if f"/{tag}/" in wav:
+            return tag
+    for s in _EXTERNAL_SOURCES:
+        if clip_id.startswith(s + "_"):
+            return s
+    return "external" if "/external/" in wav else "?"
 
 
 # --------------------------------------------------------------- embeddings
@@ -75,9 +90,7 @@ def embed_corpus(cache: Path | None = None) -> dict:
         ids.append(r["clip_id"]); video.append(r.get("video", r["clip_id"]))
         kind.append(r.get("kind") or ""); l1.append(r.get("l1") or "")
         cause.append(_cause_of(r) or "")
-        w = r["wav"]
-        src.append("youtube" if "/youtube/" in w else "tiktok" if "/tiktok/" in w
-                   else "reddit" if "/reddit/" in w else "?")
+        src.append(source_of(r["wav"], r["clip_id"]))
         if (i + 1) % 100 == 0:
             print(f"  embedded {i+1}/{len(rows)}", flush=True)
     cache.parent.mkdir(parents=True, exist_ok=True)
@@ -219,22 +232,31 @@ def corrected_t(diffs, n_train, n_test):
 
 # ------------------------------------------------------- task definitions
 def tasks(d):
+    """Build the (masks, labelmaps) for every head. The fault/normal head gets one
+    honest **source-held-constant** cut per recording source that carries BOTH
+    classes (so it works for youtube AND the external datasets), plus the
+    confound-inflated all-sources cut for reference."""
     KIND, SRC, L1, CAUSE = d["kind"], d["src"], d["l1"], d["cause"]
     knock = np.array(["knock" if "knock" in x else ("normal_idle" if x == L1_NORMAL else "")
                       for x in L1])
     tri = np.array(["engine" if c in ENGINE else "chassis" if c in CHASSIS else ""
                     for c in CAUSE])
-    return {
-        "knock (knock vs normal-idle)": knock != "",
-        "kind | YouTube (confound-free)": ((KIND == "fault") | (KIND == "normal")) & (SRC == "youtube"),
-        "kind | all sources": (KIND == "fault") | (KIND == "normal"),
-        "triage (engine vs running-gear)": (KIND == "fault") & (tri != ""),
-        "cause (part family)": CAUSE != "",
-    }, {"knock (knock vs normal-idle)": knock,
-        "kind | YouTube (confound-free)": KIND,
-        "kind | all sources": KIND,
-        "triage (engine vs running-gear)": tri,
-        "cause (part family)": CAUSE}
+    kind_mask = (KIND == "fault") | (KIND == "normal")
+    masks = {"knock (knock vs normal-idle)": knock != "",
+             "kind | all sources": kind_mask}
+    labelmaps = {"knock (knock vs normal-idle)": knock,
+                 "kind | all sources": KIND}
+    for s in sorted(set(SRC)):
+        sel = kind_mask & (SRC == s)
+        if len(set(KIND[sel])) >= 2:         # only a source with both classes is honest
+            name = f"kind | {s} (source held constant)"
+            masks[name] = sel
+            labelmaps[name] = KIND
+    masks["triage (engine vs running-gear)"] = (KIND == "fault") & (tri != "")
+    labelmaps["triage (engine vs running-gear)"] = tri
+    masks["cause (part family)"] = CAUSE != ""
+    labelmaps["cause (part family)"] = CAUSE
+    return masks, labelmaps
 
 
 # ------------------------------------------------------------------- run
@@ -294,30 +316,35 @@ def run(out_md: Path | None = None) -> dict:
             lines.append(f"| {n} | {cell(1)} | {cell(2)} | **{cell(3)}** | {cell(4)} | "
                          f"{tk[3]['random']:.3f} |")
 
-    # permutation test on the honest cut (is fault/normal real once source is fixed?)
-    name = "kind | YouTube (confound-free)"
-    if name in heads:
+    # permutation test on an honest cut (is fault/normal real once source is fixed?)
+    confound_free = sorted(
+        [n for n in heads if n.startswith("kind | ") and "held constant" in n],
+        key=lambda n: (0 if "youtube" in n else 1, n))
+    name = confound_free[0] if confound_free else None
+    if name:
         m = masks[name]; y = labelmaps[name][m]; keep = y != ""
         Xs, ys, gs = X[m][keep], y[keep], VID[m][keep]
         obs = heads[name]["balacc"][0]
         p, nm, ns = permutation_p(Xs, ys, gs, obs, n=200)
-        report["permutation_kind_youtube"] = {"observed_balacc": obs, "null_mean": nm,
-                                              "null_std": ns, "p_value": p}
+        report["permutation_kind_confound_free"] = {"cut": name, "observed_balacc": obs,
+                                                    "null_mean": nm, "null_std": ns,
+                                                    "p_value": p}
         lines += ["", f"**Permutation null — {name}:** observed balAcc {obs:.3f} vs "
                   f"label-shuffled null {nm:.3f}±{ns:.3f}, **p={p:.3f}** "
                   f"({'REAL signal above chance' if p < 0.05 else 'not distinguishable from chance'})."]
 
     # source confound, Stage 0: how predictable is the recording source?
-    folds, _ = grouped_cv(X, SRC, VID)   # multiclass -> only balAcc/macroF1/mcc populate
-    a = agg(folds, keys=("bal_acc", "macro_f1", "mcc"))
-    report["source_confound"] = {"predict_source_balacc": a["bal_acc"], "mcc": a["mcc"]}
-    lines += ["", "## Source confound (the dataset's structural risk)", "",
-              f"All normals are YouTube; TikTok/Reddit are 100% fault. Predicting the "
-              f"recording **source** from the embedding alone scores balAcc "
-              f"{a['bal_acc'][0]:.3f}±{a['bal_acc'][1]:.2f} (MCC {a['mcc'][0]:.3f}) — "
-              f"the shortcut is *available*. The honest fault/normal number is therefore "
-              f"the **YouTube-only** row above (source held constant), not the all-sources "
-              f"row, whose AUROC is confound-inflated."]
+    if len(set(SRC)) > 1:
+        folds, _ = grouped_cv(X, SRC, VID)   # multiclass -> only balAcc/macroF1/mcc populate
+        a = agg(folds, keys=("bal_acc", "macro_f1", "mcc"))
+        report["source_confound"] = {"predict_source_balacc": a["bal_acc"], "mcc": a["mcc"]}
+        lines += ["", "## Source confound (the dataset's structural risk)", "",
+                  f"When fault/normal correlates with the recording source, the model can "
+                  f"take a shortcut. Predicting the recording **source** from the embedding "
+                  f"alone scores balAcc {a['bal_acc'][0]:.3f}±{a['bal_acc'][1]:.2f} "
+                  f"(MCC {a['mcc'][0]:.3f}) — the shortcut is *available*. Trust the "
+                  f"**source-held-constant** rows above (one per source with both classes), "
+                  f"not the all-sources row, whose AUROC is confound-inflated."]
 
     repo_root = Path(__file__).resolve().parents[4]   # eval/training/cardiag/src/<root>
     out_md = out_md or (repo_root / "docs" / "SCORECARD.md")

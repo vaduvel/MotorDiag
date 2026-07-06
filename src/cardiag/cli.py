@@ -303,6 +303,10 @@ def train(
         help="Confident-learning label cleaning: drop this fraction (e.g. 0.15) of "
              "the likely-mislabeled clips per source before fitting. Measured "
              "~+0.05 balanced accuracy on the fault/triage heads (docs/MODEL_CARD.md)."),
+    weak_label_sources: str = typer.Option(
+        "youtube,tiktok", "--weak-label-sources",
+        help="Comma-separated source names to exclude from label heads "
+             "(kind/cause/region/triage) but keep for knock. Set to '' to include all."),
 ):
     """Embed the scraped corpus with CLAP and train the fault/knock/cause +
     triage models into data/training/. Use --fixtures to train instantly offline
@@ -313,7 +317,8 @@ def train(
         _nudge("now diagnose a clip:  cardiag diagnose <clip.wav>",
                "ready for a real model? scrape:  cardiag scrape youtube")
     else:
-        build.train(min_class=min_class, prune_noisy=prune_noisy)
+        build.train(min_class=min_class, prune_noisy=prune_noisy,
+                    weak_label_sources=weak_label_sources)
         _nudge("diagnose a clip:  cardiag diagnose <clip.wav>",
                "audit the corpus:  cardiag gallery -o gallery.html")
 

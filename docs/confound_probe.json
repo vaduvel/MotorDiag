@@ -1,142 +1,212 @@
 {
   "corpus": {
-    "n_kind_clips": 679,
-    "n_videos": 493,
+    "n_kind_clips": 3052,
+    "n_videos": 2413,
     "by_source": {
       "ai_mechanic": 339,
       "car_engine": 301,
-      "db1": 39
+      "cdd": 923,
+      "db1": 39,
+      "revix": 1161,
+      "tiktok": 14,
+      "youtube": 275
     },
     "by_kind": {
-      "fault": 395,
-      "normal": 284
+      "fault": 1769,
+      "normal": 1283
     }
   },
   "transforms": {
     "baseline (raw embeddings)": {
       "all_sources_cv": {
         "bal_acc": [
-          0.8006862885060754,
-          0.0365776792717145
+          0.7802432534918631,
+          0.03431189221745801
         ],
         "auroc": [
-          0.8746948066368452,
-          0.03366620446668863
+          0.8643166339444623,
+          0.030796583052136825
         ],
-        "ece": 0.09493139018503205
+        "ece": 0.09852497507380079
       },
       "loso": {
         "ai_mechanic": {
           "n_test": 339,
-          "bal_acc": 0.621,
-          "auroc": 0.682,
+          "bal_acc": 0.684,
+          "auroc": 0.767,
           "majority": 0.631
         },
         "car_engine": {
           "n_test": 301,
-          "bal_acc": 0.574,
-          "auroc": 0.585,
+          "bal_acc": 0.628,
+          "auroc": 0.673,
           "majority": 0.528
+        },
+        "cdd": {
+          "n_test": 923,
+          "bal_acc": 0.689,
+          "auroc": 0.743,
+          "majority": 0.568
         },
         "db1": {
           "n_test": 39,
           "skipped": "held-out or train side is single-class"
         },
+        "revix": {
+          "n_test": 1161,
+          "bal_acc": 0.536,
+          "auroc": 0.569,
+          "majority": 0.503
+        },
+        "tiktok": {
+          "n_test": 14,
+          "skipped": "held-out or train side is single-class"
+        },
+        "youtube": {
+          "n_test": 275,
+          "bal_acc": 0.537,
+          "auroc": 0.536,
+          "majority": 0.967
+        },
         "_mean": {
-          "bal_acc": 0.597,
-          "auroc": 0.633
+          "bal_acc": 0.615,
+          "auroc": 0.658
         }
       },
       "source_predictability": {
         "bal_acc": [
-          0.6746699112997562,
-          0.0777024377729148
+          0.5363165289716273,
+          0.04486025166089472
         ],
-        "chance": 0.333
+        "chance": 0.143
       }
     },
     "A: per-source standardise": {
       "all_sources_cv": {
         "bal_acc": [
-          0.7761615272358111,
-          0.04642011062819913
+          0.8021915087381116,
+          0.027555762155599545
         ],
         "auroc": [
-          0.8644893880270296,
-          0.03930105293543314
+          0.8856274288998641,
+          0.021361167623185625
         ],
-        "ece": 0.11494510759180773
+        "ece": 0.06850788631335751
       },
       "loso": {
         "ai_mechanic": {
           "n_test": 339,
-          "bal_acc": 0.571,
-          "auroc": 0.601,
+          "bal_acc": 0.677,
+          "auroc": 0.732,
           "majority": 0.631
         },
         "car_engine": {
           "n_test": 301,
-          "bal_acc": 0.561,
-          "auroc": 0.586,
+          "bal_acc": 0.653,
+          "auroc": 0.692,
           "majority": 0.528
+        },
+        "cdd": {
+          "n_test": 923,
+          "bal_acc": 0.709,
+          "auroc": 0.778,
+          "majority": 0.568
         },
         "db1": {
           "n_test": 39,
           "skipped": "held-out or train side is single-class"
         },
+        "revix": {
+          "n_test": 1161,
+          "bal_acc": 0.528,
+          "auroc": 0.571,
+          "majority": 0.503
+        },
+        "tiktok": {
+          "n_test": 14,
+          "skipped": "held-out or train side is single-class"
+        },
+        "youtube": {
+          "n_test": 275,
+          "bal_acc": 0.42,
+          "auroc": 0.451,
+          "majority": 0.967
+        },
         "_mean": {
-          "bal_acc": 0.566,
-          "auroc": 0.593
+          "bal_acc": 0.597,
+          "auroc": 0.645
         }
       },
       "source_predictability": {
         "bal_acc": [
-          0.33333333333333326,
-          5.551115123125783e-17
+          0.14285714285714282,
+          2.7755575615628914e-17
         ],
-        "chance": 0.333
+        "chance": 0.143
       }
     },
     "B: source-nullspace projection": {
       "all_sources_cv": {
         "bal_acc": [
-          0.7970779797595253,
-          0.04018655308398591
+          0.78107727578464,
+          0.03391820818149561
         ],
         "auroc": [
-          0.8729294755877032,
-          0.035351791515900365
+          0.8643250508222593,
+          0.028684172488925175
         ],
-        "ece": 0.09215975859550601
+        "ece": 0.09461937497684582
       },
       "loso": {
         "ai_mechanic": {
           "n_test": 339,
-          "bal_acc": 0.613,
-          "auroc": 0.682,
+          "bal_acc": 0.703,
+          "auroc": 0.779,
           "majority": 0.631
         },
         "car_engine": {
           "n_test": 301,
-          "bal_acc": 0.58,
-          "auroc": 0.606,
+          "bal_acc": 0.619,
+          "auroc": 0.664,
           "majority": 0.528
+        },
+        "cdd": {
+          "n_test": 923,
+          "bal_acc": 0.684,
+          "auroc": 0.731,
+          "majority": 0.568
         },
         "db1": {
           "n_test": 39,
           "skipped": "held-out or train side is single-class"
         },
+        "revix": {
+          "n_test": 1161,
+          "bal_acc": 0.522,
+          "auroc": 0.542,
+          "majority": 0.503
+        },
+        "tiktok": {
+          "n_test": 14,
+          "skipped": "held-out or train side is single-class"
+        },
+        "youtube": {
+          "n_test": 275,
+          "bal_acc": 0.547,
+          "auroc": 0.587,
+          "majority": 0.967
+        },
         "_mean": {
-          "bal_acc": 0.597,
-          "auroc": 0.644
+          "bal_acc": 0.615,
+          "auroc": 0.661
         }
       },
       "source_predictability": {
         "bal_acc": [
-          0.6429894914766603,
-          0.07978923322380928
+          0.5326664955313628,
+          0.06463471307485891
         ],
-        "chance": 0.333
+        "chance": 0.143
       }
     }
   }

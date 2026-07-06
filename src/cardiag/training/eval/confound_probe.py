@@ -51,7 +51,7 @@ from sklearn.preprocessing import StandardScaler
 
 from cardiag.training.eval.scorecard import agg, ece, embed_corpus, lr_head
 
-_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic")
+_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic", "revix", "cdd")
 
 
 def source_of(clip_id: str, wav_src: str) -> str:

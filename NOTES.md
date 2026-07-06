@@ -58,7 +58,7 @@ Mapped every folder to the closest canonical cause (see `scripts/ingest_external
 
 All heads except triage were near-chance. The fixture set is tiny and meant only for teaching the CLI flow.
 
-## New model (external datasets, 679 clips)
+## Model — external datasets only (679 clips)
 | Head | Balanced Accuracy | σ | Classes | n | Majority base | Temperature |
 |---|---|---|---|---|---|---|
 | kind (fault/normal) | **0.793** | 0.035 | 2 | 712 | 0.587 | 2.845 |
@@ -68,7 +68,19 @@ All heads except triage were near-chance. The fixture set is tiny and meant only
 | triage (engine/chassis) | **0.631** | 0.142 | 2 | 179 | 0.877 | 2.60 |
 | knock_region | — | — | 1 | 3 | — | — |
 
-Prune-noisy 0.15 applied: 106 low-confidence clips dropped for kind, 61 for knock, 26 for region/triage, 0 for cause (too few per class).
+Prune-noisy 0.15: 106 dropped for kind, 61 for knock, 26 for region/triage, 0 for cause.
+
+## Model — all sources (external + YouTube + TikTok, 968 clips)
+| Head | Balanced Accuracy | σ | Classes | n | Majority base | Temperature |
+|---|---|---|---|---|---|---|
+| kind (fault/normal) | **0.727** | 0.043 | 2 | 1046 | 0.692 | 4.376 |
+| knock (knock/normal_idle) | **0.914** | 0.036 | 2 | 474 | 0.941 | 1.435 |
+| cause (13 part families) | **0.236** | 0.037 | 13 | 425 | 0.381 | 1.0 |
+| region (6 zones) | **0.209** | 0.078 | 6 | 430 | 0.400 | 1.0 |
+| triage (engine/chassis) | **0.632** | 0.096 | 2 | 430 | 0.835 | 5.12 |
+| knock_region (engine/steering) | **0.700** | 0.245 | 2 | 5 | 0.600 | 0.3 |
+
+YouTube (275 clips) + TikTok (28 clips) contributed diverse real-world audio but with weaker labels (derived from metadata keywords). Kind dropped from 0.793→0.727 (tougher CV across 3 sources). Knock improved from 0.858→0.914. Cause dropped from 0.381→0.236 (2 more classes, noisier labels, much larger n). Triage flat.
 
 ### Diagnosis sample (Suspension Arm fault clip)
 ```json
@@ -80,13 +92,13 @@ Prune-noisy 0.15 applied: 106 low-confidence clips dropped for kind, 61 for knoc
 High confidence fault, cause fires suspension (matches the DB1 folder label). Region top-1 is engine (marginal). Knock probability ~0.5 means the knock specialist didn't fire.
 
 ### Reference targets (from shipped model docs)
-| Metric | Target | Current | Status |
-|---|---|---|---|
-| fault/normal AUROC | ~0.79 | 0.793 bal_acc | ✓ On target |
-| region top-3 | ~75% | 0.291 bal_acc (6-way) | Needs more data per class |
-| cause top-3 | ~45-65% | 0.381 bal_acc (11-way) | Improving, below target |
-| knock OOS | 0.56 (chance) | 0.858 bal_acc | ✓ Strong |
-| ECE | ~0.04 | not measured | |
+| Metric | Target | External-only | All-sources | Status |
+|---|---|---|---|---|
+| fault/normal AUROC | ~0.79 | 0.793 bal_acc | 0.727 | ↓ More data needed with clean labels |
+| region top-3 | ~75% | 0.291 bal_acc (6-way) | 0.209 | ↓ |
+| cause top-3 | ~45-65% | 0.381 bal_acc (11-way) | 0.236 | ↓ |
+| knock OOS | 0.56 (chance) | 0.858 bal_acc | 0.914 | ↑ Stronger |
+| ECE | ~0.04 | not measured | not measured | |
 
 ## Device info
 - `torch.backends.mps.is_available()` → True

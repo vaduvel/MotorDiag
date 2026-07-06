@@ -1,0 +1,143 @@
+{
+  "corpus": {
+    "n_kind_clips": 679,
+    "n_videos": 493,
+    "by_source": {
+      "ai_mechanic": 339,
+      "car_engine": 301,
+      "db1": 39
+    },
+    "by_kind": {
+      "fault": 395,
+      "normal": 284
+    }
+  },
+  "transforms": {
+    "baseline (raw embeddings)": {
+      "all_sources_cv": {
+        "bal_acc": [
+          0.8006862885060754,
+          0.0365776792717145
+        ],
+        "auroc": [
+          0.8746948066368452,
+          0.03366620446668863
+        ],
+        "ece": 0.09493139018503205
+      },
+      "loso": {
+        "ai_mechanic": {
+          "n_test": 339,
+          "bal_acc": 0.621,
+          "auroc": 0.682,
+          "majority": 0.631
+        },
+        "car_engine": {
+          "n_test": 301,
+          "bal_acc": 0.574,
+          "auroc": 0.585,
+          "majority": 0.528
+        },
+        "db1": {
+          "n_test": 39,
+          "skipped": "held-out or train side is single-class"
+        },
+        "_mean": {
+          "bal_acc": 0.597,
+          "auroc": 0.633
+        }
+      },
+      "source_predictability": {
+        "bal_acc": [
+          0.6746699112997562,
+          0.0777024377729148
+        ],
+        "chance": 0.333
+      }
+    },
+    "A: per-source standardise": {
+      "all_sources_cv": {
+        "bal_acc": [
+          0.7761615272358111,
+          0.04642011062819913
+        ],
+        "auroc": [
+          0.8644893880270296,
+          0.03930105293543314
+        ],
+        "ece": 0.11494510759180773
+      },
+      "loso": {
+        "ai_mechanic": {
+          "n_test": 339,
+          "bal_acc": 0.571,
+          "auroc": 0.601,
+          "majority": 0.631
+        },
+        "car_engine": {
+          "n_test": 301,
+          "bal_acc": 0.561,
+          "auroc": 0.586,
+          "majority": 0.528
+        },
+        "db1": {
+          "n_test": 39,
+          "skipped": "held-out or train side is single-class"
+        },
+        "_mean": {
+          "bal_acc": 0.566,
+          "auroc": 0.593
+        }
+      },
+      "source_predictability": {
+        "bal_acc": [
+          0.33333333333333326,
+          5.551115123125783e-17
+        ],
+        "chance": 0.333
+      }
+    },
+    "B: source-nullspace projection": {
+      "all_sources_cv": {
+        "bal_acc": [
+          0.7970779797595253,
+          0.04018655308398591
+        ],
+        "auroc": [
+          0.8729294755877032,
+          0.035351791515900365
+        ],
+        "ece": 0.09215975859550601
+      },
+      "loso": {
+        "ai_mechanic": {
+          "n_test": 339,
+          "bal_acc": 0.613,
+          "auroc": 0.682,
+          "majority": 0.631
+        },
+        "car_engine": {
+          "n_test": 301,
+          "bal_acc": 0.58,
+          "auroc": 0.606,
+          "majority": 0.528
+        },
+        "db1": {
+          "n_test": 39,
+          "skipped": "held-out or train side is single-class"
+        },
+        "_mean": {
+          "bal_acc": 0.597,
+          "auroc": 0.644
+        }
+      },
+      "source_predictability": {
+        "bal_acc": [
+          0.6429894914766603,
+          0.07978923322380928
+        ],
+        "chance": 0.333
+      }
+    }
+  }
+}

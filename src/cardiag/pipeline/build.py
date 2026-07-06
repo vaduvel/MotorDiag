@@ -452,8 +452,11 @@ def _self_confidence(X, y, groups):
     y = np.asarray(y)
     groups = np.asarray(groups)
     cls = sorted(set(y))
-    ns = max(2, min(4, min(len(set(groups[y == c])) for c in cls)))
+    n_per_class = np.array([(y == c).sum() for c in cls])
+    ns = min(max(2, min(4, min(len(set(groups[y == c])) for c in cls))), n_per_class.min())
     sp = np.full(len(y), 1.0)
+    if ns < 2:
+        return sp
     for tr, te in StratifiedGroupKFold(ns, shuffle=True, random_state=0).split(X, y, groups):
         if len(set(y[tr])) < 2:
             continue

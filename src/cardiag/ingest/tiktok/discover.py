@@ -43,6 +43,10 @@ PROBLEM_QUERIES = [
     "bad u joint clunk", "bad differential whine", "bad transmission bearing noise",
     "bad turbo whine", "spark knock pinging sound", "loose heat shield rattle",
     "bad motor mount clunk", "valve tapping noise",
+    # Romanian / European queries
+    "zgomot motor", "bate motor", "scartaie masina", "diagnostic auto sunet",
+    "zgomot roata", "probleme motor", "frane scartaie", "turbo fluiera",
+    "lant distributie", "bataie motor", "sunet anormal",
 ]
 
 # Healthy-engine queries: the missing 'normal' class. The corpus is otherwise
@@ -57,6 +61,9 @@ NORMAL_QUERIES = [
     "perfect engine purr", "new engine sound idle", "healthy engine bay sound",
     "well maintained engine sound", "normal exhaust note idle",
     "engine running smooth no noise", "good cold start engine sound",
+    # Romanian / European queries
+    "motor normal", "mers lin masina", "motor sanatos",
+    "masina merge bine", "fara probleme motor",
 ]
 
 

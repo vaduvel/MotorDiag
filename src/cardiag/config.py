@@ -81,12 +81,23 @@ FAULT_QUERIES = [
     "transmission whine", "power steering pump whine", "bad water pump noise",
     "lifter tick", "turbo whine", "differential whine", "rod knock sound",
     "bad strut noise", "tire noise vs wheel bearing noise",
+    # Romanian / European queries
+    "zgomot motor probleme", "bate motor", "trosnet motor",
+    "diagnostic sunet masina", "sunet anormal masina",
+    "zgomot roata fata", "scartaie frana", "bate in motor",
+    "motor bataie", "cauciucuri zgomot", "problem motor noise",
+    "turbina fluiera", "lant distributie zgomot",
+    "sunet defect masina", "masina face zgomot",
 ]
 # Normals: enthusiast videos titled with exact year/make/model (free YMM labels).
 NORMAL_QUERIES = [
     "cold start idle sound", "engine idle sound stock",
     "POV night drive no music", "highway driving sound interior",
     "stock exhaust idle rev", "engine sound after oil change smooth",
+    # Romanian / European queries
+    "motor pornit normal", "mers linistit masina",
+    "motor turat normal fara probleme", "suna bine motor",
+    "motor curat fara zgomote", "mers lin masina pe autostrada",
 ]
 DUR_MIN_S, DUR_MAX_S = 30, 1500
 

@@ -1,0 +1,156 @@
+{
+  "heads": {
+    "kind (fault vs normal, all sources)": {
+      "n": 679,
+      "classes": {
+        "fault": 395,
+        "normal": 284
+      },
+      "majority": 0.582,
+      "default": {
+        "bal_acc": [
+          0.8006862885060754,
+          0.0365776792717145
+        ],
+        "mcc": [
+          0.6015553119282095,
+          0.07410387243429756
+        ]
+      },
+      "C_tuned": {
+        "bal_acc": [
+          0.7966926017575584,
+          0.04092622170945215
+        ],
+        "mcc": [
+          0.5923597769420466,
+          0.08366622278985339
+        ],
+        "C_median": 0.1
+      },
+      "threshold_tuned": {
+        "bal_acc": [
+          0.8031664604549347,
+          0.036634701078512376
+        ],
+        "threshold_median": 0.525
+      }
+    },
+    "knock (knock vs normal-idle)": {
+      "n": 386,
+      "classes": {
+        "knock": 16,
+        "normal_idle": 370
+      },
+      "majority": 0.959,
+      "default": {
+        "bal_acc": [
+          0.8840052079476738,
+          0.13800566747773008
+        ],
+        "mcc": [
+          0.7705893689039764,
+          0.25497634018492366
+        ]
+      },
+      "C_tuned": {
+        "bal_acc": [
+          0.9234535604097247,
+          0.09904172694966666
+        ],
+        "mcc": [
+          0.8314439634408434,
+          0.19203099156056494
+        ],
+        "C_median": 0.1
+      },
+      "threshold_tuned": {
+        "bal_acc": [
+          0.7992268295692952,
+          0.15098254680486745
+        ],
+        "threshold_median": 0.1
+      }
+    },
+    "triage (engine vs running-gear)": {
+      "n": 170,
+      "classes": {
+        "chassis": 20,
+        "engine": 150
+      },
+      "majority": 0.882,
+      "default": {
+        "bal_acc": [
+          0.6736666666666666,
+          0.16765838283048462
+        ],
+        "mcc": [
+          0.3206540253858546,
+          0.3049918699877928
+        ]
+      },
+      "C_tuned": {
+        "bal_acc": [
+          0.6896666666666665,
+          0.16745281259042633
+        ],
+        "mcc": [
+          0.33957587249486293,
+          0.3004996581943525
+        ],
+        "C_median": 0.03
+      },
+      "threshold_tuned": {
+        "bal_acc": [
+          0.6140000000000001,
+          0.10219045400079642
+        ],
+        "threshold_median": 0.1
+      }
+    },
+    "cause (part family)": {
+      "n": 178,
+      "classes": {
+        "accessories": 1,
+        "belt": 8,
+        "brakes": 2,
+        "cv_axle": 5,
+        "cv_joint": 1,
+        "engine_internal": 131,
+        "exhaust": 6,
+        "fuel_ignition": 3,
+        "fuel_pump": 1,
+        "power_steering": 3,
+        "rod_knock": 3,
+        "suspension": 5,
+        "transmission": 1,
+        "turbo": 1,
+        "vacuum_leak": 1,
+        "valvetrain": 2,
+        "wheel_bearing": 4
+      },
+      "majority": 0.736,
+      "default": {
+        "bal_acc": [
+          0.3228665778665779,
+          0.05848942646606009
+        ],
+        "mcc": [
+          0.413747422641093,
+          0.06207906828582111
+        ]
+      },
+      "C_tuned": {
+        "bal_acc": [
+          0.33036497690343847,
+          0.05213756813335091
+        ],
+        "mcc": [
+          0.39432285523930577,
+          0.05877053054689314
+        ],
+        "C_median": 0.03
+      }
+    }
+  }
+}

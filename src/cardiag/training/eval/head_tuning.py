@@ -207,13 +207,14 @@ def run(out_md: Path | None = None) -> dict:
 
     L += ["", "## Selected hyper-parameters (median across folds)", "",
           "| Head | median threshold | median C |", "|---|--:|--:|"]
+    _mdash = '\u2014'
     for name, h in report["heads"].items():
         if "skipped" in h:
             continue
         t = h.get("threshold_tuned", {}).get("threshold_median")
         c = h.get("C_tuned", {}).get("C_median")
-        L.append(f"| {name} | {('%.3f' % t) if t is not None else '\u2014'} | "
-                 f"{('%.3g' % c) if c is not None else '\u2014'} |")
+        L.append(f"| {name} | {('%.3f' % t) if t is not None else _mdash} | "
+                 f"{('%.3g' % c) if c is not None else _mdash} |")
 
     L += [
         "",

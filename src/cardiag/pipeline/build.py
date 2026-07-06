@@ -9,7 +9,7 @@ scrape time:
   * ``kind`` (fault / normal): YouTube's fault vs normal query sets; Reddit and
     TikTok are fault-dominant sources, so they contribute the fault class.
   * ``l1`` sound-type and mechanical/tool gating: CLAP zero-shot.
-  * ``cause`` (part family): keyword match on the title / caption.
+  * ``cause`` (part family): keyword match on the title / description / caption.
 
 Every platform funnels through one labeling function (:func:`_label_audio`) so a
 clip looks identical regardless of source. That weaker-but-honest supervision
@@ -90,11 +90,27 @@ def _require(tool: str, fix: str) -> None:
     clone gets 'install yt-dlp', not a raw FileNotFoundError mid-scrape)."""
     import shutil
     if not shutil.which(tool):
-        raise SystemExit(f"'{tool}' not found on PATH — {fix}")
+        raise SystemExit(f"'{tool}' not found on PATH \u2014 {fix}")
+
+
+def _meta_text(meta: dict, *keys: str) -> str:
+    """Join the optional free-text fields a scrape record may carry (description,
+    transcript, caption, OCR, tags\u2026). Missing keys are skipped, so this is safe
+    across platforms whose worklist schemas differ. Keeps cause labeling a
+    TEXT-only, audio-independent signal (see ``config.L2_KEYWORDS``): more text
+    only widens recall, it is never audio-derived."""
+    parts: list[str] = []
+    for k in keys:
+        v = meta.get(k)
+        if isinstance(v, str):
+            parts.append(v)
+        elif isinstance(v, (list, tuple)):
+            parts.extend(str(x) for x in v)
+    return " ".join(p for p in parts if p)
 
 
 def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap,
-                 cause: str | None = None) -> list[dict]:
+                 cause: str | None = None, extra_text: str = "") -> list[dict]:
     """Segment ONE audio file (any length) into labeled mechanical-span clips.
 
     This is the single segmentation path for the whole project: isolate the
@@ -104,6 +120,10 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap,
     short spans exactly like a scraped clip, so training and inference always see
     the same unit. ``cause`` overrides the title-keyword label when the source
     already knows the part (e.g. a curated dataset folder).
+
+    ``extra_text`` folds extra TEXT sources (description/transcript/OCR) into the
+    keyword search, so a clip whose title lacks a part name can still get a cause.
+    It is text-only and never audio-derived, keeping cause independent of CLAP.
     """
     import librosa
     import soundfile as sf
@@ -133,7 +153,8 @@ def _label_audio(wav, vid: str, title: str, kind: str, out_base: Path, clap,
 
     out_dir = out_base / "clips" / vid
     out_dir.mkdir(parents=True, exist_ok=True)
-    l2 = [cause] if cause else l2_from_text(title)    # explicit cause wins over keywords
+    # cause is TEXT-only: title + any description/transcript/OCR the scrape carried
+    l2 = [cause] if cause else l2_from_text(f"{title} {extra_text}".strip())
     shop = speech_frac >= config.SHOP_SPEECH_FRAC
     recs = []
     for i, (cp, fp, lp) in enumerate(zip(conf, fault, l1p)):
@@ -247,7 +268,10 @@ def scrape_youtube(per_query: int = 3, max_videos: int = 40) -> int:
         except Exception as e:
             print(f"  skip {w['id']}: {type(e).__name__}")
             continue
-        recs += _label_audio(wav, w["id"], w["title"], w["kind"], paths.YT_DATA, clap)
+        recs += _label_audio(wav, w["id"], w["title"], w["kind"], paths.YT_DATA, clap,
+                             extra_text=_meta_text(w, "description", "desc",
+                                                   "transcript", "subtitles",
+                                                   "captions", "tags", "ocr"))
         Path(wav).unlink(missing_ok=True)             # raw audio is transient
         print(f"  [youtube {i+1}/{len(work)}] {w['kind']:<6} clips: {len(recs)}",
               flush=True)
@@ -275,7 +299,9 @@ def scrape_reddit(pages: int = 2, max_posts: int = 60) -> int:
         if not wav.exists():
             continue
         recs += _label_audio(wav, p["fullname"], p.get("title", ""), "fault",
-                             paths.REDDIT_DATA, clap)
+                             paths.REDDIT_DATA, clap,
+                             extra_text=_meta_text(p, "selftext", "body", "text",
+                                                   "flair", "transcript"))
         if (i + 1) % 20 == 0:
             print(f"  [reddit {i+1}/{len(posts)}] clips: {len(recs)}", flush=True)
     n = _write_corpus(recs, paths.REDDIT_DATA)
@@ -286,7 +312,7 @@ def scrape_reddit(pages: int = 2, max_posts: int = 60) -> int:
 def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault") -> int:
     """Discover clips via the stealth browser, download + label each with ``kind``.
 
-    ``kind="fault"`` (default) uses the problem queries; ``kind="normal"`` uses the
+    ``kind=\"fault\"`` (default) uses the problem queries; ``kind=\"normal\"`` uses the
     healthy-engine queries; scrape both to give `cardiag train` fault AND normal
     clips from TikTok, which breaks the recording-source confound (docs/MODEL_CARD.md).
 
@@ -343,7 +369,10 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault")
             continue
         finally:
             mp4.unlink(missing_ok=True)
-        recs += _label_audio(wav, vid, w.get("desc", ""), kind, paths.TT_DATA, clap)
+        recs += _label_audio(wav, vid, w.get("desc", ""), kind, paths.TT_DATA, clap,
+                             extra_text=_meta_text(w, "description", "transcript",
+                                                   "subtitles", "captions", "ocr",
+                                                   "hashtags", "stickers", "tags"))
         wav.unlink(missing_ok=True)
         print(f"  [tiktok {kind} {i+1}/{len(work)}] clips: {len(recs)}", flush=True)
     n = _write_corpus(recs, paths.TT_DATA)
@@ -489,7 +518,7 @@ def _prune_keep(X, y, groups, sources, frac: float):
 def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
                n_splits: int = 5, repeats: int = 5) -> dict:
     """Honest by-video performance: repeated StratifiedGroupKFold balanced accuracy
-    (mean±std), not a single arbitrary split. Balanced accuracy because the corpus
+    (mean\u00b1std), not a single arbitrary split. Balanced accuracy because the corpus
     is class-skewed (raw accuracy vs majority misleads; see docs/MODEL_CARD.md).
     With ``prune_frac`` the confident-learning prune is applied WITHIN each train
     fold only (test stays untouched), so the estimate reflects the shipped pipeline."""
@@ -521,7 +550,7 @@ def _cv_report(X, y, groups, sources=None, prune_frac: float = 0.0,
            "cv_folds": len(accs), "majority_acc": round(float(maj), 3),
            "n_videos": len(set(groups))}
     if len(set(y)) == 2 and out["cv_bal_acc"] - 0.5 < 2 * out["cv_bal_acc_std"]:
-        out["weak_signal"] = ("balanced accuracy is within ~2σ of chance (0.5) — "
+        out["weak_signal"] = ("balanced accuracy is within ~2\u03c3 of chance (0.5) \u2014 "
                               "this head carries little signal; needs more/cleaner data")
     return out
 
@@ -591,7 +620,7 @@ def _fit(rows, labelf, embed, min_class: int, prune_noisy: float = 0.0):
 
     X = np.array([x for x, _, _, _ in data])
     if X.ndim != 2 or not np.isfinite(X).all():
-        raise SystemExit("embeddings are non-finite or ragged — check the CLAP embed step")
+        raise SystemExit("embeddings are non-finite or ragged \u2014 check the CLAP embed step")
     y = np.array([lbl for _, lbl, _, _ in data])
     groups = np.array([g for _, _, g, _ in data])
     sources = np.array([s for _, _, _, s in data])
@@ -633,9 +662,9 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         return _CAUSE_TO_REGION.get(cause_fn(r)) if r.get("kind") == "fault" else None
     heads["region"], report["region"], temps["region"] = _fit(
         [r for r in rows if r.get("kind") == "fault"], region_label, embed, min_class, prune_noisy)
-    # KNOCK SPECIALIST (a coarse-to-fine cascade, à la hierarchical fault diagnosis):
+    # KNOCK SPECIALIST (a coarse-to-fine cascade, \u00e0 la hierarchical fault diagnosis):
     # "knock" is one acoustic label worn by ~24 different causes (suspension, rod
-    # knock, wheel bearing, CV…). A region head trained ONLY on knock-sound clips
+    # knock, wheel bearing, CV\u2026). A region head trained ONLY on knock-sound clips
     # localizes the knock 1.8x better than the general head (measured: top-1 0.44 vs
     # 0.33), because it doesn't have to also separate non-knock sounds. diagnose()
     # SOFT-routes to it by the knock probability (gating, not a hard gate, so a
@@ -649,7 +678,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
     # high, or a single-class corpus): that would be a silent garbage model.
     if all(report[h].get("degenerate") for h in ("kind", "knock", "cause")):
         raise SystemExit(
-            "every head is degenerate — the corpus has too few clips per class "
+            "every head is degenerate \u2014 the corpus has too few clips per class "
             f"(min_class={min_class}). Scrape more (both fault and normal), or "
             "lower --min-class. No model was written.")
     if {"fault", "normal"} - set(report["kind"].get("classes", [])):
@@ -696,10 +725,10 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
     rows = load_corpus()
     if len(rows) < 8:
         raise SystemExit(
-            f"only {len(rows)} clips in the corpus — run `cardiag scrape …` first "
+            f"only {len(rows)} clips in the corpus \u2014 run `cardiag scrape \u2026` first "
             f"(try a larger --per-query / --max-videos).")
 
-    print(f"embedding {len(rows)} clips with CLAP…", flush=True)
+    print(f"embedding {len(rows)} clips with CLAP\u2026", flush=True)
     # Each corpus clip is an isolated span, embedded via the SAME embed_clip()
     # inference uses: train/serve share the contract. A span longer than the CLAP
     # window is split into <=10 s windows (window_spans, kept per the A/B test): each
@@ -740,7 +769,7 @@ def train_from_fixtures(min_class: int = 2) -> dict:
              "l1": _clean(l1v), "cause": _clean(ca)} for c, v, k, l1v, ca in
             zip(z["clip_id"], z["video"], z["kind"], z["l1"], z["cause"])]
     embed = {str(c): x for c, x in zip(z["clip_id"], z["X"])}
-    print(f"training offline on {len(rows)} bundled fixture embeddings…")
+    print(f"training offline on {len(rows)} bundled fixture embeddings\u2026")
     return _train_heads(rows, embed, min_class, lambda r: r.get("cause") or None)
 
 
@@ -768,5 +797,5 @@ def demo(per_query: int = 1, max_videos: int = 12) -> None:
     from cardiag import Classifier
     clf = Classifier.load()
     print(json.dumps(clf.diagnose(load_corpus()[0]["wav"]).to_dict(), indent=1))
-    print("\n✓ loop complete: scraped (3 sources), cleaned, trained, diagnosed "
+    print("\n\u2713 loop complete: scraped (3 sources), cleaned, trained, diagnosed "
           "from scratch.")

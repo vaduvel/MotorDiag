@@ -641,11 +641,22 @@ def _fit(rows, labelf, embed, min_class: int, prune_noisy: float = 0.0):
     return clf, report, temperature
 
 
-def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0) -> dict:
+def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0,
+                 weak_sources=frozenset({"youtube", "tiktok"})) -> dict:
     """Fit the three heads + triage from rows and a clip_id->embedding map, and
     save the model artifacts. Shared by the CLAP path and the offline fixtures
     path. ``cause_fn(row)`` yields the cause label. ``prune_noisy`` (0..1) enables
-    confident-learning label pruning per head."""
+    confident-learning label pruning per head.
+
+    ``weak_sources`` names recording sources whose supervision is known-weak:
+    scraped YouTube/TikTok get ``kind`` from a query/assumption and ``cause`` from
+    a clickbait title, so those labels are noisy. Measured on the reference corpus,
+    mixing them in dropped kind (0.793->0.727) and cause (0.381->0.236) balanced
+    accuracy while RAISING knock (0.858->0.914, its sound is salient even in noise).
+    So those clips are dropped from the LABEL heads (kind/cause/region/triage) and
+    KEPT for the audio-salient knock heads. Pass an empty set to include everything
+    (do this once the scrape is cleaned).
+    """
     import joblib
 
     def _dump(obj, dest):                    # atomic: temp + os.replace
@@ -653,21 +664,25 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         joblib.dump(obj, tmp)
         os.replace(tmp, dest)
 
+    def _strong(rs):                         # drop known-weak-label sources
+        return [r for r in rs if _source_of(r) not in weak_sources]
+
     heads, report, temps = {}, {}, {}
+    report["_weak_sources_excluded"] = sorted(weak_sources)
     heads["kind"], report["kind"], temps["kind"] = _fit(
-        [r for r in rows if r.get("kind") in ("fault", "normal")],
+        _strong([r for r in rows if r.get("kind") in ("fault", "normal")]),
         lambda r: r.get("kind"), embed, min_class, prune_noisy)
     heads["knock"], report["knock"], temps["knock"] = _fit(
         rows, _knock_of, embed, min_class, prune_noisy)
     heads["cause"], report["cause"], temps["cause"] = _fit(
-        [r for r in rows if r.get("kind") == "fault"], cause_fn, embed, min_class, prune_noisy)
+        _strong([r for r in rows if r.get("kind") == "fault"]), cause_fn, embed, min_class, prune_noisy)
     # "where in the car" region head (6 zones): the OOS-robust headline output.
     # Derived from the SAME cause_fn as the cause head (so it works for scraped
     # rows and for explicit-cause rows alike), then mapped to a coarse zone.
     def region_label(r):
         return _CAUSE_TO_REGION.get(cause_fn(r)) if r.get("kind") == "fault" else None
     heads["region"], report["region"], temps["region"] = _fit(
-        [r for r in rows if r.get("kind") == "fault"], region_label, embed, min_class, prune_noisy)
+        _strong([r for r in rows if r.get("kind") == "fault"]), region_label, embed, min_class, prune_noisy)
     # KNOCK SPECIALIST (a coarse-to-fine cascade, \u00e0 la hierarchical fault diagnosis):
     # "knock" is one acoustic label worn by ~24 different causes (suspension, rod
     # knock, wheel bearing, CV\u2026). A region head trained ONLY on knock-sound clips
@@ -705,7 +720,7 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
         return "engine" if c in _ENGINE else "chassis" if c in _CHASSIS else None
 
     triage_clf, report["triage"], triage_temp = _fit(
-        rows, triage_label, embed, min_class, prune_noisy)
+        _strong(rows), triage_label, embed, min_class, prune_noisy)
     classes = list(getattr(triage_clf, "classes_",
                            report["triage"].get("classes", ["engine", "chassis"])))
     _dump({"model": triage_clf, "classes": classes, "temperature": triage_temp},
@@ -719,13 +734,19 @@ def _train_heads(rows, embed, min_class: int, cause_fn, prune_noisy: float = 0.0
     return report
 
 
-def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
+def train(min_class: int = 2, prune_noisy: float = 0.0,
+          weak_label_sources: str = "youtube,tiktok") -> dict:
     """Embed every scraped clip with CLAP and train the heads + triage model.
 
     ``prune_noisy`` (0..1) enables confident-learning label pruning: drop that
     fraction of the lowest-self-confidence (likely-mislabeled) clips per source
     before fitting. Measured ~+0.05 balanced accuracy on the fault/triage heads on
-    the reference corpus (see docs/MODEL_CARD.md); 0.15 is a reasonable value."""
+    the reference corpus (see docs/MODEL_CARD.md); 0.15 is a reasonable value.
+
+    ``weak_label_sources`` (comma-separated) drops those recording sources from the
+    LABEL heads (kind/cause/region/triage) but keeps them for knock; default drops
+    the noisy scraped YouTube/TikTok, recovering the external-only kind/cause
+    numbers. Pass "" to include everything (use after the scrape is cleaned)."""
     import librosa
 
     rows = load_corpus()
@@ -734,6 +755,7 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
             f"only {len(rows)} clips in the corpus \u2014 run `cardiag scrape \u2026` first "
             f"(try a larger --per-query / --max-videos).")
 
+    weak = frozenset(s.strip() for s in weak_label_sources.split(",") if s.strip())
     print(f"embedding {len(rows)} clips with CLAP\u2026", flush=True)
     # Each corpus clip is an isolated span, embedded via the SAME embed_clip()
     # inference uses: train/serve share the contract. A span longer than the CLAP
@@ -753,7 +775,7 @@ def train(min_class: int = 2, prune_noisy: float = 0.0) -> dict:
             cid = r["clip_id"] if len(wins) == 1 else f'{r["clip_id"]}#w{k}'
             embed[cid] = embed_clip(w)
             expanded.append({**r, "clip_id": cid})
-    return _train_heads(expanded, embed, min_class, _cause_of, prune_noisy)
+    return _train_heads(expanded, embed, min_class, _cause_of, prune_noisy, weak)
 
 
 FIXTURES = Path(__file__).resolve().parent.parent / "_fixtures"
@@ -776,7 +798,9 @@ def train_from_fixtures(min_class: int = 2) -> dict:
             zip(z["clip_id"], z["video"], z["kind"], z["l1"], z["cause"])]
     embed = {str(c): x for c, x in zip(z["clip_id"], z["X"])}
     print(f"training offline on {len(rows)} bundled fixture embeddings\u2026")
-    return _train_heads(rows, embed, min_class, lambda r: r.get("cause") or None)
+    # fixtures have no source paths -> _source_of returns "?" -> nothing excluded
+    return _train_heads(rows, embed, min_class, lambda r: r.get("cause") or None,
+                        weak_sources=frozenset())
 
 
 # ===================================================================== demo

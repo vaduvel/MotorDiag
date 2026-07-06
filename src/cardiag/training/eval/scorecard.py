@@ -13,7 +13,7 @@ docs/DEFENSE.md):
   * **Calibration**: ECE (equal-frequency bins, Naeini 2015) + Brier, so a
     "90% confidence" claim is auditable.
   * **Significance**: a by-video label-permutation null (Ojala & Garriga 2010)
-    answers "above chance?"; the Nadeau–Bengio (2003) corrected resampled t-test
+    answers "above chance?"; the Nadeau-Bengio (2003) corrected resampled t-test
     answers "better than the previous version, or just noise?".
 
 Run:  python -m cardiag.training.eval.scorecard         # full scorecard -> docs/SCORECARD.md
@@ -48,14 +48,17 @@ ENGINE = {"engine_internal", "low_oil", "fuel_ignition", "belt", "accessories",
 CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "cv_axle", "suspension",
            "differential", "tires", "wheel_tire", "power_steering"}
 
-_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic")
+# External sub-datasets, split out of the generic "external" bucket by the
+# clip_id prefix each ingest set (f"{source}_{stem}"). db1/car_engine/ai_mechanic
+# come from scripts/ingest_external_datasets.py; revix + car_diagnostics were
+# ingested via `cardiag ingest --source <name>` (Kaggle).
+_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic", "revix", "car_diagnostics")
 
 
 def source_of(wav: str, clip_id: str) -> str:
     """Recording source, external-aware. Scraped clips carry their platform in the
     wav path; externally-ingested clips (data/external/clips/...) are split into
-    their sub-dataset by the clip_id prefix set in
-    scripts/ingest_external_datasets.py (f\"{label}_{stem}\")."""
+    their sub-dataset by the clip_id prefix set at ingest time (f"{source}_{stem}")."""
     for tag in ("youtube", "tiktok", "reddit"):
         if f"/{tag}/" in wav:
             return tag

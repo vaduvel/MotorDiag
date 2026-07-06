@@ -51,13 +51,17 @@ from sklearn.preprocessing import StandardScaler
 
 from cardiag.training.eval.scorecard import agg, ece, embed_corpus, lr_head
 
-_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic")
+# External sub-datasets, split out of the generic "external" bucket by the
+# clip_id prefix each ingest set (f"{source}_{stem}"). The first three come from
+# scripts/ingest_external_datasets.py; revix + car_diagnostics were ingested via
+# `cardiag ingest --source <name>` (Kaggle). Each becomes its own LOSO domain.
+_EXTERNAL_SOURCES = ("db1", "car_engine", "ai_mechanic", "revix", "car_diagnostics")
 
 
 def source_of(clip_id: str, wav_src: str) -> str:
     """Recording source, external-aware (mirrors scorecard.source_of): scraped
     clips keep their platform; external clips are split into their sub-dataset by
-    the clip_id prefix set in scripts/ingest_external_datasets.py (f\"{label}_{stem}\")."""
+    the clip_id prefix set at ingest time (f"{source}_{stem}")."""
     if wav_src in ("youtube", "tiktok", "reddit"):
         return wav_src
     for s in _EXTERNAL_SOURCES:
@@ -320,7 +324,7 @@ def run(out_md: Path | None = None) -> dict:
         "generalisation from data we already have.",
         "* **LOSO flat while source predictability drops** => the source signal and "
         "the fault signal are entangled in the same directions; you cannot separate "
-        "them linearly with 3 sources, and a 4th independent domain is required.",
+        "them linearly, and another independent domain is required.",
         "* **all-sources balAcc must not collapse** -- if it does, the transform "
         "destroyed the in-domain signal and is not worth keeping.",
     ]

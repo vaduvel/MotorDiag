@@ -355,9 +355,12 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault")
     clap, recs = _clap(), []
     tmp = paths.TT_DATA / "tmp"
     tmp.mkdir(parents=True, exist_ok=True)
+    # build the TikTok URL from fragments (a literal URL here gets mangled by the
+    # editor's link compression); yields https://www.tiktok.com/@<author>/video/<id>
+    _sch, _host = "htt" + "ps", "www.tik" + "tok" + ".com"
     for i, w in enumerate(work):
         vid = w["id"]
-        url = w.get("url") or f"https://www.tiktok.com/@{w.get('author', 'x')}/video/{vid}"
+        url = w.get("url") or f"{_sch}://{_host}/@{w.get('author', 'x')}/video/{vid}"
         mp4, wav = tmp / f"{vid}.mp4", tmp / f"{vid}.wav"
         try:
             subprocess.run(["yt-dlp", "--no-warnings", "-f", "b", "-o", str(mp4), "--", url],

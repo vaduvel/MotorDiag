@@ -357,7 +357,7 @@ def scrape_tiktok(max_videos: int = 30, n_queries: int = 8, kind: str = "fault")
     tmp.mkdir(parents=True, exist_ok=True)
     for i, w in enumerate(work):
         vid = w["id"]
-        url = w.get("url") or f"https://www.tiktok.com/@{w.get('author','x')}/video/{vid}"
+        url = w.get("url") or f"https://www.tiktok.com/@{w.get('author', 'x')}/video/{vid}"
         mp4, wav = tmp / f"{vid}.mp4", tmp / f"{vid}.wav"
         try:
             subprocess.run(["yt-dlp", "--no-warnings", "-f", "b", "-o", str(mp4), "--", url],

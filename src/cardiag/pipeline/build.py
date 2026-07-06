@@ -36,19 +36,22 @@ from cardiag.training.prep import causes
 # canonical cause family (underscored) -> coarse triage class
 _ENGINE = {"engine_internal", "low_oil", "fuel_ignition", "belt", "accessories",
            "alternator", "water_pump", "turbo", "exhaust", "ac_compressor",
-           "fuel_pump", "valvetrain", "rod_knock"}
+           "fuel_pump", "valvetrain", "rod_knock", "vacuum_leak", "seals_gaskets",
+           "cooling_other"}
 _CHASSIS = {"wheel_bearing", "brakes", "cv_joint", "cv_axle", "suspension",
-            "differential", "tires", "wheel_tire", "power_steering"}
+            "differential", "tires", "wheel_tire", "power_steering",
+            "transmission", "mounts", "bearing_other", "body"}
 
 # canonical cause family -> "where in the car" region (6 zones). This is the
 # headline output: a recording -> a ranked region shortlist. The OOS sanity check
 # (top-3 ~0.75 on the verified set) shows this generalizes where knock does not.
 _REGION = {
     "engine": {"engine_internal", "rod_knock", "valvetrain", "low_oil",
-               "fuel_ignition", "fuel_pump"},
+               "fuel_ignition", "fuel_pump", "vacuum_leak", "seals_gaskets",
+               "cooling_other"},
     "accessory": {"belt", "alternator", "water_pump", "ac_compressor", "accessories"},
     "exhaust": {"exhaust", "turbo"},
-    "drivetrain": {"cv_axle", "cv_joint", "differential"},
+    "drivetrain": {"cv_axle", "cv_joint", "differential", "transmission"},
     "suspension/steering": {"suspension", "power_steering"},
     "brakes/wheels": {"brakes", "wheel_bearing", "wheel_tire", "tires"},
 }
@@ -362,7 +365,8 @@ def load_corpus() -> list[dict]:
     """
     rows: list[dict] = []
     skipped = 0
-    for base in (paths.YT_DATA, paths.TT_DATA, paths.REDDIT_DATA):
+    for base in (paths.YT_DATA, paths.TT_DATA, paths.REDDIT_DATA,
+                 paths.DATA / "external"):
         f = base / "corpus.jsonl"
         if not f.exists():
             continue
@@ -387,7 +391,11 @@ def load_corpus() -> list[dict]:
 
 # ---------------------------------------------------------------- label helpers
 def _cause_of(row: dict):
-    """Canonical cause family (underscored) from the title keyword candidates."""
+    """Canonical cause family (underscored) from the explicit cause or title keyword
+    candidates. Prefers the explicit cause field set during ingestion."""
+    c = row.get("cause")
+    if c:
+        return c.replace(" ", "_")
     for part in row.get("l2_candidates", []):
         c = causes.canonical_cause(part)
         if not c or c == "other":
@@ -430,7 +438,7 @@ def _new_head():
 def _source_of(r: dict) -> str:
     """Recording source (youtube/tiktok/reddit) from a clip's wav path."""
     w = r.get("wav", "") or ""
-    for s in ("youtube", "tiktok", "reddit"):
+    for s in ("youtube", "tiktok", "reddit", "external"):
         if f"/{s}/" in w:
             return s
     return r.get("source", "?")
